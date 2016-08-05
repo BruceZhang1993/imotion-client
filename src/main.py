@@ -3,9 +3,9 @@
 
 import sys
 
-from PyQt5.QtWidgets import QButtonGroup, QWidget, QPushButton, QMessageBox, QListWidgetItem, QLabel, QMainWindow, QDesktopWidget, QApplication, QGridLayout, QScrollArea, QListWidget
-from PyQt5.QtCore import Qt, QSize
-from PyQt5.QtGui import QFont, QColor
+from PyQt5.QtWidgets import QWidget, QLineEdit, QPushButton, QMessageBox, QListWidgetItem, QLabel, QMainWindow, QDesktopWidget, QApplication, QGridLayout, QScrollArea, QListWidget
+from PyQt5.QtCore import Qt, QSize, QObject, pyqtSignal
+from PyQt5.QtGui import QFont
 
 
 class ImotionMain(QMainWindow):
@@ -30,8 +30,8 @@ class ImotionMain(QMainWindow):
         serverlist.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         items = [ ServerListItem("Test Server", False), ServerListItem("#Test Channel", True) ]
         serverlist.addItems(items)
-        nickbtn = ControlButton("N")
-        addserverbtn = ControlButton("S")
+        nickbtn = ControlButton("")
+        addserverbtn = ControlButton("")
         grid.addWidget(serverlist, 0, 0, 2, 4)
         grid.addWidget(nickbtn, 1, 0)
         grid.addWidget(addserverbtn, 1, 1)
@@ -39,14 +39,23 @@ class ImotionMain(QMainWindow):
         # Set main chat panel
         chatgrid = QGridLayout()
         topic = TopicLabel("Example Topic.")
-        chatgrid.addWidget(topic, 0, 0)
+        chatgrid.addWidget(topic, 0, 0, 1, 2)
         grid.addLayout(chatgrid, 0, 6, 0, 35)
 
         # Chat window
         chats = ChatList()
-        chatgrid.addWidget(chats, 1, 0)
+        chatgrid.addWidget(chats, 1, 0, 1, 2)
         chat = [ ChatListOtherMessage("Other's Message."), ChatListMyMessage("My Message.") ]
         chats.addItems(chat)
+
+        self.chatinput = ChatInput()
+        chatgrid.addWidget(self.chatinput, 2, 0)
+        self.chatinput.textChanged.connect(self.setSendState)
+
+
+        self.send = SendButton("")
+        chatgrid.addWidget(self.send, 2, 1)
+        self.send.clicked.connect(self.sendMessage)
 
         # Window default position and size
         self.resize(800, 500)
@@ -54,6 +63,17 @@ class ImotionMain(QMainWindow):
 
         # Set window title
         self.setWindowTitle("I-Motion IM Client")
+
+    def setSendState(self):
+        if self.chatinput.text() == "":
+            self.send.disable()
+        else:
+            self.send.enable()
+
+    def sendMessage(self):
+        message = self.chatinput.text()
+        self.chatinput.setText("")
+        print(message)
 
     def center(self):
         screen = QDesktopWidget().screenGeometry()
@@ -141,6 +161,34 @@ class ControlButton(QPushButton):
 
     def setupUi(self):
         self.setMaximumWidth(30)
+        self.setStyleSheet("ControlButton {background: #B8FCD0; padding: 2px;}")
+
+class SendButton(QPushButton):
+
+    def __init__(self, text):
+        super().__init__(text)
+        self.setupUi()
+
+    def setupUi(self):
+        self.setMaximumWidth(30)
+        self.setStyleSheet(
+            "SendButton {padding: 4px; background: #aaa; color: #fff; border: 0px transparent; border-radius: 12px;}")
+
+    def disable(self):
+        self.setStyleSheet(
+            "SendButton {padding: 4px; background: #aaa; color: #fff; border: 0px transparent; border-radius: 12px;}")
+        self.setDisabled(True)
+
+    def enable(self):
+        self.setStyleSheet(
+            "SendButton {padding: 4px; background: #20C2F7; color: #fff; border: 0px transparent; border-radius: 12px;}")
+        self.setEnabled(True)
+
+class ChatInput(QLineEdit):
+
+    def __init__(self):
+        super().__init__()
+        # self.setupUi()
 
 class TopicLabel(QLabel):
 
