@@ -3,9 +3,9 @@
 
 import sys
 
-from PyQt5.QtWidgets import QWidget, QLineEdit, QPushButton, QMessageBox, QListWidgetItem, QLabel, QMainWindow, QDesktopWidget, QApplication, QGridLayout, QScrollArea, QListWidget
-from PyQt5.QtCore import Qt, QSize, QObject, pyqtSignal
-from PyQt5.QtGui import QFont
+from PyQt5.QtWidgets import QListView, QWidget, QLineEdit, QPushButton, QMessageBox, QListWidgetItem, QLabel, QMainWindow, QDesktopWidget, QApplication, QGridLayout, QScrollArea, QListWidget
+from PyQt5.QtCore import Qt, QSize
+from PyQt5.QtGui import QFont, QColor, QStandardItemModel, QStandardItem
 
 
 class ImotionMain(QMainWindow):
@@ -18,7 +18,6 @@ class ImotionMain(QMainWindow):
 
         # Set window layout
         grid = QGridLayout()
-        self.setLayout(grid)
         centralWidget = QWidget()
         self.setCentralWidget(centralWidget)
         centralWidget.setLayout(grid)
@@ -31,7 +30,9 @@ class ImotionMain(QMainWindow):
         items = [ ServerListItem("Test Server", False), ServerListItem("#Test Channel", True) ]
         serverlist.addItems(items)
         nickbtn = ControlButton("")
+        nickbtn.setToolTip("- 设置昵称 -")
         addserverbtn = ControlButton("")
+        addserverbtn.setToolTip("- 连接服务器 -")
         grid.addWidget(serverlist, 0, 0, 2, 4)
         grid.addWidget(nickbtn, 1, 0)
         grid.addWidget(addserverbtn, 1, 1)
@@ -45,13 +46,13 @@ class ImotionMain(QMainWindow):
         # Chat window
         chats = ChatList()
         chatgrid.addWidget(chats, 1, 0, 1, 2)
-        chat = [ ChatListOtherMessage("Other's Message."), ChatListMyMessage("My Message.") ]
+        chat = [ ChatListOtherMessage("Other's Message."), ChatListMyMessage("My Message."), ChatListInfo("bruceutut joins.") ]
         chats.addItems(chat)
 
         self.chatinput = ChatInput()
         chatgrid.addWidget(self.chatinput, 2, 0)
         self.chatinput.textChanged.connect(self.setSendState)
-
+        self.chatinput.returnPressed.connect(self.sendMessage)
 
         self.send = SendButton("")
         chatgrid.addWidget(self.send, 2, 1)
@@ -87,16 +88,18 @@ class ImotionMain(QMainWindow):
         else:
             event.ignore()
 
-class ServerList(QListWidget):
+class ServerList(QListView):
 
     def __init__(self):
         super().__init__()
+        self.model = QStandardItemModel(self)
+        self.setModel(self.model)
 
     def addItems(self, items, p_str=None):
         for item in items:
-            self.addItem(item)
+            self.model.appendRow(item)
 
-class ServerListItem(QListWidgetItem):
+class ServerListItem(QStandardItem):
 
     def __init__(self, text, is_channel=False):
         if is_channel:
@@ -120,10 +123,12 @@ class ServerListItem(QListWidgetItem):
         self.setSizeHint(size)
         self.setFont(font)
 
-class ChatList(QListWidget):
+class ChatList(QListView):
 
     def __init__(self):
         super().__init__()
+        self.model = QStandardItemModel(self)
+        self.setModel(self.model)
         self.setupUi()
 
     def setupUi(self):
@@ -131,9 +136,9 @@ class ChatList(QListWidget):
 
     def addItems(self, items, p_str=None):
         for item in items:
-            self.addItem(item)
+            self.model.appendRow(item)
 
-class ChatListMyMessage(QListWidgetItem):
+class ChatListMyMessage(QStandardItem):
 
     def __init__(self, text):
         super().__init__(text)
@@ -143,7 +148,19 @@ class ChatListMyMessage(QListWidgetItem):
         self.setTextAlignment(Qt.AlignRight)
         self.setFlags(Qt.NoItemFlags)
 
-class ChatListOtherMessage(QListWidgetItem):
+class ChatListInfo(QStandardItem):
+
+    def __init__(self, text):
+        super().__init__(text)
+        self.setupUi()
+
+    def setupUi(self):
+        # self.setForeground(QColor(125, 125, 125))
+        # self.setBackground(QColor(202, 238, 250))
+        self.setTextAlignment(Qt.AlignCenter)
+        self.setFlags(Qt.NoItemFlags)
+
+class ChatListOtherMessage(QStandardItem):
 
     def __init__(self, text):
         super().__init__(text)
@@ -170,16 +187,19 @@ class SendButton(QPushButton):
         self.setupUi()
 
     def setupUi(self):
+        self.setToolTip("-- 请先输入内容 --")
         self.setMaximumWidth(30)
         self.setStyleSheet(
             "SendButton {padding: 4px; background: #aaa; color: #fff; border: 0px transparent; border-radius: 12px;}")
 
     def disable(self):
+        self.setToolTip("-- 请先输入内容 --")
         self.setStyleSheet(
             "SendButton {padding: 4px; background: #aaa; color: #fff; border: 0px transparent; border-radius: 12px;}")
         self.setDisabled(True)
 
     def enable(self):
+        self.setToolTip("-- 发送 --")
         self.setStyleSheet(
             "SendButton {padding: 4px; background: #20C2F7; color: #fff; border: 0px transparent; border-radius: 12px;}")
         self.setEnabled(True)
@@ -197,7 +217,7 @@ class TopicLabel(QLabel):
         self.setupUi()
 
     def setupUi(self):
-        self.setStyleSheet("TopicLabel {border: 1px solid; border-radius: 4px; background: #ccc;}")
+        self.setStyleSheet("TopicLabel {padding: 5px; border: 0px solid grey; border-radius: 5px; background: #ccc;}")
 
 if __name__ == '__main__':
     imotionapp = QApplication(sys.argv)
