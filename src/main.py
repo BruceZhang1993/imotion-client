@@ -2,10 +2,12 @@
 #-- coding: utf-8 --
 
 import sys
+import json
 
-from PyQt5.QtWidgets import QListView, QWidget, QLineEdit, QPushButton, QMessageBox, QListWidgetItem, QLabel, QMainWindow, QDesktopWidget, QApplication, QGridLayout, QScrollArea, QListWidget
-from PyQt5.QtCore import Qt, QSize
+from PyQt5.QtWidgets import QCheckBox, QDialog, QListView, QWidget, QLineEdit, QPushButton, QMessageBox, QListWidgetItem, QLabel, QMainWindow, QDesktopWidget, QApplication, QGridLayout, QScrollArea, QListWidget
+from PyQt5.QtCore import Qt, QSize, pyqtSignal
 from PyQt5.QtGui import QFont, QColor, QStandardItemModel, QStandardItem
+from connection import IRCConnection, ServerConnectionError, IRCThread
 
 
 class ImotionMain(QMainWindow):
@@ -33,6 +35,7 @@ class ImotionMain(QMainWindow):
         nickbtn.setToolTip("- 设置昵称 -")
         addserverbtn = ControlButton("")
         addserverbtn.setToolTip("- 连接服务器 -")
+        addserverbtn.clicked.connect(self.showserverdialog)
         grid.addWidget(serverlist, 0, 0, 2, 4)
         grid.addWidget(nickbtn, 1, 0)
         grid.addWidget(addserverbtn, 1, 1)
@@ -44,10 +47,10 @@ class ImotionMain(QMainWindow):
         grid.addLayout(chatgrid, 0, 6, 0, 35)
 
         # Chat window
-        chats = ChatList()
-        chatgrid.addWidget(chats, 1, 0, 1, 2)
-        chat = [ ChatListOtherMessage("Other's Message."), ChatListMyMessage("My Message."), ChatListInfo("bruceutut joins.") ]
-        chats.addItems(chat)
+        self.chats = ChatList()
+        chatgrid.addWidget(self.chats, 1, 0, 1, 2)
+        # chat = [ ChatListOtherMessage("Other's Message."), ChatListMyMessage("My Message."), ChatListInfo("bruceutut joins.") ]
+        # self.chats.addItems(chat)
 
         self.chatinput = ChatInput()
         chatgrid.addWidget(self.chatinput, 2, 0)
@@ -71,6 +74,26 @@ class ImotionMain(QMainWindow):
         else:
             self.send.enable()
 
+    def showserverdialog(self):
+        sd = ServerDialog(self)
+        sd.exec_()
+        self.cinfo = sd.cinfo
+        # print(self.cinfo)
+        if self.cinfo:
+            self.connectServer(*self.cinfo)
+
+    def connectServer(self, *args):
+        try:
+            self.connection = IRCConnection(*args)
+            self.connection.signalOut.connect(self.proceedMsg)
+            self.irc = IRCThread(self.connection)
+            self.irc.start()
+        except ServerConnectionError:
+            pass
+
+    def proceedMsg(self, jmsg):
+        self.chats.addItems([ChatListOtherMessage(jmsg)])
+
     def sendMessage(self):
         message = self.chatinput.text()
         self.chatinput.setText("")
@@ -84,6 +107,8 @@ class ImotionMain(QMainWindow):
     def closeEvent(self, event):
         confirm = QMessageBox.question(self, "退出...", "确认退出 I-Motion IM 客户端？", QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
         if confirm == QMessageBox.Yes:
+            if self.connection:
+                self.connection.connection.quit()
             event.accept()
         else:
             event.ignore()
@@ -209,6 +234,95 @@ class ChatInput(QLineEdit):
     def __init__(self):
         super().__init__()
         # self.setupUi()
+
+class ServerDialog(QDialog):
+
+    def __init__(self, parent=None):
+        super().__init__(parent=parent)
+        self.cinfo = None
+        self.setupUi()
+
+    def setupUi(self):
+        layout = QGridLayout()
+        self.setLayout(layout)
+        self.setStyleSheet("ServerDialog {color: #999}")
+        self.setWindowTitle("连接服务器...")
+        self.setFixedSize(250, 350)
+
+        # widgets
+        slb = QLabel("服务器")
+        plb = QLabel("端口")
+        splb = QLabel("密码")
+        nlb = QLabel("NICK")
+        ulb = QLabel("USERNAME")
+        rlb = QLabel("REALNAME")
+        aulb = QLabel("认证")
+        ipv6lb = QLabel("IPv6")
+        ssllb = QLabel("SSL")
+
+        self.sl = PlaceHoldEdit("irc.freenode.net")
+        self.pl = PlaceHoldEdit("6667")
+        self.spl = PlaceHoldEdit("Optional")
+        self.nl = PlaceHoldEdit()
+        self.ul = PlaceHoldEdit("Optional")
+        self.rl = PlaceHoldEdit("Optional")
+        self.aul = PlaceHoldEdit("Optional")
+        self.ipv6l = QCheckBox()
+        self.ssll = QCheckBox()
+
+        self.nl.textChanged.connect(self.textSync)
+
+        layout.addWidget(slb, 0, 0)
+        layout.addWidget(plb, 1, 0)
+        layout.addWidget(splb, 2, 0)
+        layout.addWidget(nlb, 3, 0)
+        layout.addWidget(ulb, 4, 0)
+        layout.addWidget(rlb, 5, 0)
+        layout.addWidget(aulb, 6, 0)
+        layout.addWidget(ssllb, 7, 0)
+        layout.addWidget(ipv6lb, 7, 2)
+
+        layout.addWidget(self.sl, 0, 1, 1, 3)
+        layout.addWidget(self.pl, 1, 1, 1, 3)
+        layout.addWidget(self.spl, 2, 1, 1, 3)
+        layout.addWidget(self.nl, 3, 1, 1, 3)
+        layout.addWidget(self.ul, 4, 1, 1, 3)
+        layout.addWidget(self.rl, 5, 1, 1, 3)
+        layout.addWidget(self.aul, 6, 1, 1, 3)
+        layout.addWidget(self.ssll, 7, 1)
+        layout.addWidget(self.ipv6l, 7, 3)
+
+        self.ok = QPushButton("连接")
+        self.cancel = QPushButton("取消")
+        layout.addWidget(self.cancel, 8, 0, 1, 2)
+        layout.addWidget(self.ok, 8, 2, 1, 2)
+
+        self.ok.clicked.connect(self.doOk)
+        self.cancel.clicked.connect(self.doCancel)
+
+    def doOk(self):
+        if not self.pl.text():
+            port = 6667
+        else:
+            port = int(self.pl.text())
+        self.cinfo = [self.sl.text() or 'irc.freenode.net', port, self.nl.text(), ["#brucetest"], self.aul.text(), self.spl.text(), self.ul.text(),
+                      self.rl.text(),  self.ssll.isChecked(), self.ipv6l.isChecked()]
+        self.done(1)
+
+    def doCancel(self):
+        self.done(0)
+
+    def textSync(self):
+        self.rl.setText(self.nl.text())
+        self.ul.setText(self.nl.text())
+
+class PlaceHoldEdit(QLineEdit):
+
+    def __init__(self, placeholder=None):
+        super().__init__()
+        if placeholder:
+            self.setPlaceholderText(placeholder)
+        # self.setStyleSheet("PlaceHoldEdit {margin: 0px;}")
 
 class TopicLabel(QLabel):
 
