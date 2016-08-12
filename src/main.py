@@ -11,8 +11,8 @@ from connection import IRCConnection, ServerConnectionError, IRCThread
 
 class ImotionMain(QMainWindow):
 
-    serverInfo = {}
-    serveritems = []
+    currentChannel = "#linuxba"
+    channelList = list()
 
     def __init__(self):
         super().__init__()
@@ -79,9 +79,6 @@ class ImotionMain(QMainWindow):
         else:
             self.send.enable()
 
-    def updateInfo(self, info):
-        pass
-
     def showserverdialog(self):
         sd = ServerDialog(self)
         sd.exec_()
@@ -94,10 +91,22 @@ class ImotionMain(QMainWindow):
         try:
             self.connection = IRCConnection(*args)
             self.connection.communicator.signalOut.connect(self.proceedMsg)
+            self.connection.communicator.updateInfo.connect(self.proceedInfo)
             self.irc = IRCThread(self.connection)
             self.irc.start()
+            self.nickname = self.connection.connection.get_nickname()
+            self.servername = self.connection.server
+            self.serverlist.addItems([self.servername])
+            self.serverlist.addItems(self.connection.channels, True)
+            self.channelList = self.connection.channels
         except ServerConnectionError:
             pass
+
+    def proceedInfo(self, jinfo):
+        info = json.loads(jinfo)
+        if "nick" in info.keys():
+            self.nickname = info["nick"]
+            self.chats.addItems([ChatListInfo("修改NICK -> %s" % self.nickname)])
 
     def proceedMsg(self, jmsg):
         self.chats.addItems([ChatListOtherMessage(jmsg)])
@@ -109,7 +118,30 @@ class ImotionMain(QMainWindow):
     def sendMessage(self):
         message = self.chatinput.text()
         self.chatinput.setText("")
-        print(message)
+        if message.startswith("/"):
+            self.proceedCommand(message)
+        elif message.startswith("//"):
+            message = message.replace("//", "/", 1)
+            self.connection.connection.privmsg(self.currentChannel, message)
+            self.chats.addItems(ChatListMyMessage(message))
+        else:
+            self.connection.connection.privmsg(self.currentChannel, message)
+            self.chats.addItems([ChatListMyMessage(message)])
+
+    def proceedCommand(self, cmds):
+        cmdlist = cmds.split()
+        if cmdlist[0].strip("/").lower() == "join":
+            try:
+                self.connection.connection.join(cmdlist[1])
+                self.channelList.append(cmdlist[1])
+                self.updateServerChannels()
+            except:
+                pass
+
+    def updateServerChannels(self):
+        self.serverlist.model.clear()
+        self.serverlist.addItems([self.servername])
+        self.serverlist.addItems([self.channelList], True)
 
     def center(self):
         screen = QDesktopWidget().screenGeometry()
@@ -119,8 +151,10 @@ class ImotionMain(QMainWindow):
     def closeEvent(self, event):
         confirm = QMessageBox.question(self, "退出...", "确认退出 I-Motion IM 客户端？", QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
         if confirm == QMessageBox.Yes:
-            if self.connection:
+            try:
                 self.connection.connection.quit()
+            except:
+                pass
             event.accept()
         else:
             event.ignore()
@@ -132,9 +166,9 @@ class ServerList(QListView):
         self.model = QStandardItemModel(self)
         self.setModel(self.model)
 
-    def addItems(self, items):
+    def addItems(self, items, is_channel=False):
         for item in items:
-            self.model.appendRow(QStandardItem(item))
+            self.model.appendRow(ServerListItem(item, is_channel))
 
 class ServerListItem(QStandardItem):
 
@@ -317,7 +351,7 @@ class ServerDialog(QDialog):
             port = 6667
         else:
             port = int(self.pl.text())
-        self.cinfo = [self.sl.text() or 'irc.freenode.net', port, self.nl.text(), ["#brucetest"], self.aul.text(), self.spl.text(), self.ul.text(),
+        self.cinfo = [self.sl.text() or 'irc.freenode.net', port, self.nl.text(), [], self.aul.text(), self.spl.text(), self.ul.text(),
                       self.rl.text(),  self.ssll.isChecked(), self.ipv6l.isChecked()]
         self.done(1)
 

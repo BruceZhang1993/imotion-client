@@ -55,7 +55,7 @@ class IRCConnection(irc.client.SimpleIRCClient):
                 c.join(channel)
 
     def on_pubmsg(self, c, e):
-        obj = {"type": "pubmsg", "channel": e.target, "msg": e.arguments[0]}
+        obj = {"type": "pubmsg", "nick": e.source.nick, "channel": e.target, "msg": e.arguments[0]}
         jmsg = json.dumps(obj)
         self.communicator.signalOut.emit(jmsg)
 
@@ -72,11 +72,10 @@ class IRCConnection(irc.client.SimpleIRCClient):
             logger.error("%s: Cannot connect to server." % e)
             raise ServerConnectionError(e)
 
-    def on_namreply(self, c, e):
-        pass
-
     def on_nicknameinuse(self, c, e):
         c.nick(c.get_nickname() + "_")
+        info = {"nick": c.get_nickname()}
+        self.communicator.updateInfo.emit(json.dumps(info))
 
 class ServerConnectionError(Exception):
 
