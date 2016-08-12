@@ -5,12 +5,14 @@ import sys
 import json
 
 from PyQt5.QtWidgets import QCheckBox, QDialog, QListView, QWidget, QLineEdit, QPushButton, QMessageBox, QListWidgetItem, QLabel, QMainWindow, QDesktopWidget, QApplication, QGridLayout, QScrollArea, QListWidget
-from PyQt5.QtCore import Qt, QSize, pyqtSignal
+from PyQt5.QtCore import Qt, QSize, QTimer, pyqtSignal
 from PyQt5.QtGui import QFont, QColor, QStandardItemModel, QStandardItem
 from connection import IRCConnection, ServerConnectionError, IRCThread
 
-
 class ImotionMain(QMainWindow):
+
+    serverInfo = {}
+    serveritems = []
 
     def __init__(self):
         super().__init__()
@@ -26,17 +28,16 @@ class ImotionMain(QMainWindow):
         self.setStyleSheet("ImotionMain {background: #ddd;}")
 
         # Server list and scroll area
-        serverlist = ServerList()
-        serverlist.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
-        serverlist.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        items = [ ServerListItem("Test Server", False), ServerListItem("#Test Channel", True) ]
-        serverlist.addItems(items)
+        self.serverlist = ServerList()
+        self.serverlist.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        self.serverlist.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        # self.serverlist.addItems(self.serverlist.items)
         nickbtn = ControlButton("")
         nickbtn.setToolTip("- 设置昵称 -")
         addserverbtn = ControlButton("")
         addserverbtn.setToolTip("- 连接服务器 -")
         addserverbtn.clicked.connect(self.showserverdialog)
-        grid.addWidget(serverlist, 0, 0, 2, 4)
+        grid.addWidget(self.serverlist, 0, 0, 2, 4)
         grid.addWidget(nickbtn, 1, 0)
         grid.addWidget(addserverbtn, 1, 1)
 
@@ -65,14 +66,21 @@ class ImotionMain(QMainWindow):
         self.resize(800, 500)
         self.center()
 
+        # self.communicator = ImotionCommunicator(self.serverInfo)
+        # self.communicator.timeout.connect(self.updateInfo)
+
         # Set window title
         self.setWindowTitle("I-Motion IM Client")
+        # self.communicator.start()
 
     def setSendState(self):
         if self.chatinput.text() == "":
             self.send.disable()
         else:
             self.send.enable()
+
+    def updateInfo(self, info):
+        pass
 
     def showserverdialog(self):
         sd = ServerDialog(self)
@@ -85,7 +93,7 @@ class ImotionMain(QMainWindow):
     def connectServer(self, *args):
         try:
             self.connection = IRCConnection(*args)
-            self.connection.signalOut.connect(self.proceedMsg)
+            self.connection.communicator.signalOut.connect(self.proceedMsg)
             self.irc = IRCThread(self.connection)
             self.irc.start()
         except ServerConnectionError:
@@ -93,6 +101,10 @@ class ImotionMain(QMainWindow):
 
     def proceedMsg(self, jmsg):
         self.chats.addItems([ChatListOtherMessage(jmsg)])
+
+    def updateTopic(self, jmsg):
+        msg = json.loads(jmsg)
+        self.serverInfo[msg["channel"]] = msg["topic"]
 
     def sendMessage(self):
         message = self.chatinput.text()
@@ -120,9 +132,9 @@ class ServerList(QListView):
         self.model = QStandardItemModel(self)
         self.setModel(self.model)
 
-    def addItems(self, items, p_str=None):
+    def addItems(self, items):
         for item in items:
-            self.model.appendRow(item)
+            self.model.appendRow(QStandardItem(item))
 
 class ServerListItem(QStandardItem):
 

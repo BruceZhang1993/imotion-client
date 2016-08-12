@@ -12,7 +12,7 @@ logger = logging.getLogger('IRC')
 class Communicator(QObject):
 
     signalOut = pyqtSignal(str)
-    updateInfo = pyqtSignal(str)
+    updateInfo = pyqtSignal(dict)
 
 class IRCThread(QThread):
 
@@ -72,6 +72,12 @@ class IRCConnection(irc.client.SimpleIRCClient):
             logger.error("%s: Cannot connect to server." % e)
             raise ServerConnectionError(e)
 
+    def on_namreply(self, c, e):
+        pass
+
+    def on_nicknameinuse(self, c, e):
+        c.nick(c.get_nickname() + "_")
+
 class ServerConnectionError(Exception):
 
     def __init__(self, err):
@@ -81,5 +87,5 @@ class ServerConnectionError(Exception):
         return "%s: Cannot connect to server." % self.err
 
 if __name__ == '__main__':
-    connection = IRCConnection("irc.freenode.net", 7000, "brucetest", channels=["#brucetest"], ssl=True, username="brucetest", realname="Bruce Test")
+    connection = IRCConnection("irc.freenode.net", 6667, "brucetest", channels=["brucetest"], ssl=False, username="brucetest", realname="Bruce Test")
     connection.start()
