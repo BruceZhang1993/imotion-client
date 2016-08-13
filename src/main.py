@@ -4,15 +4,16 @@
 import sys
 import json
 
-from PyQt5.QtWidgets import QCheckBox, QDialog, QListView, QWidget, QLineEdit, QPushButton, QMessageBox, QListWidgetItem, QLabel, QMainWindow, QDesktopWidget, QApplication, QGridLayout, QScrollArea, QListWidget
-from PyQt5.QtCore import Qt, QSize, QTimer, pyqtSignal
-from PyQt5.QtGui import QFont, QColor, QStandardItemModel, QStandardItem
+from PyQt5.QtWidgets import QInputDialog, QCheckBox, QDialog, QListView, QWidget, QLineEdit, QPushButton, QMessageBox, QListWidgetItem, QLabel, QMainWindow, QDesktopWidget, QApplication, QGridLayout, QScrollArea, QListWidget
+from PyQt5.QtCore import Qt, QSize, QTimer, pyqtSignal, QModelIndex
+from PyQt5.QtGui import QFont, QColor, QStandardItemModel, QStandardItem, QIcon
 from connection import IRCConnection, ServerConnectionError, IRCThread
 
 class ImotionMain(QMainWindow):
 
-    currentChannel = "#linuxba"
+    currentChannel = None
     channelList = list()
+    connection = None
 
     def __init__(self):
         super().__init__()
@@ -31,14 +32,19 @@ class ImotionMain(QMainWindow):
         self.serverlist = ServerList()
         self.serverlist.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
         self.serverlist.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        smodel = self.serverlist.selectionModel()
+        # smodel.currentChanged.connect(self.selectChannel)
+
         # self.serverlist.addItems(self.serverlist.items)
-        nickbtn = ControlButton("")
-        nickbtn.setToolTip("- 设置昵称 -")
+        self.nickbtn = ControlButton("")
+        self.nickbtn.setToolTip("- 设置昵称 -")
+        self.nickbtn.setEnabled(False)
         addserverbtn = ControlButton("")
         addserverbtn.setToolTip("- 连接服务器 -")
         addserverbtn.clicked.connect(self.showserverdialog)
+        self.nickbtn.clicked.connect(self.changeNick)
         grid.addWidget(self.serverlist, 0, 0, 2, 4)
-        grid.addWidget(nickbtn, 1, 0)
+        grid.addWidget(self.nickbtn, 1, 0)
         grid.addWidget(addserverbtn, 1, 1)
 
         # Set main chat panel
@@ -63,6 +69,7 @@ class ImotionMain(QMainWindow):
         self.send.clicked.connect(self.sendMessage)
 
         # Window default position and size
+        self.setWindowIcon(QIcon("../icon/imotion.ico"))
         self.resize(800, 500)
         self.center()
 
@@ -72,6 +79,9 @@ class ImotionMain(QMainWindow):
         # Set window title
         self.setWindowTitle("I-Motion IM Client")
         # self.communicator.start()
+    #
+    # def selectChannel(self, curr, last):
+    #     ch = curr.text().strip()
 
     def setSendState(self):
         if self.chatinput.text() == "":
@@ -87,11 +97,19 @@ class ImotionMain(QMainWindow):
         if self.cinfo:
             self.connectServer(*self.cinfo)
 
+    def changeNick(self):
+        if self.connection:
+            text, ok = QInputDialog.getText(self, "NICK", "设置新的NICK:")
+            if ok:
+                self.connection.connection.nick(text)
+                self.nickname = self.connection.connection.get_nickname()
+                self.chats.addItems([ChatListInfo("更改 NICK -> %s" % self.nickname)])
+
     def connectServer(self, *args):
         try:
             self.connection = IRCConnection(*args)
             self.connection.communicator.signalOut.connect(self.proceedMsg)
-            self.connection.communicator.updateInfo.connect(self.proceedInfo)
+            # self.connection.communicator.updateInfo.connect(self.proceedInfo)
             self.irc = IRCThread(self.connection)
             self.irc.start()
             self.nickname = self.connection.connection.get_nickname()
@@ -99,17 +117,16 @@ class ImotionMain(QMainWindow):
             self.serverlist.addItems([self.servername])
             self.serverlist.addItems(self.connection.channels, True)
             self.channelList = self.connection.channels
+            if self.channelList:
+                self.currentChannel = self.channelList[0]
+            self.nickbtn.setEnabled(True)
         except ServerConnectionError:
             pass
 
-    def proceedInfo(self, jinfo):
-        info = json.loads(jinfo)
-        if "nick" in info.keys():
-            self.nickname = info["nick"]
-            self.chats.addItems([ChatListInfo("修改NICK -> %s" % self.nickname)])
-
     def proceedMsg(self, jmsg):
-        self.chats.addItems([ChatListOtherMessage(jmsg)])
+        msg = json.loads(jmsg)
+        text = msg["nick"] + "| " + msg["msg"]
+        self.chats.addItems([ChatListOtherMessage(text)])
 
     def updateTopic(self, jmsg):
         msg = json.loads(jmsg)
@@ -118,15 +135,17 @@ class ImotionMain(QMainWindow):
     def sendMessage(self):
         message = self.chatinput.text()
         self.chatinput.setText("")
-        if message.startswith("/"):
-            self.proceedCommand(message)
-        elif message.startswith("//"):
+        if message.startswith("//"):
             message = message.replace("//", "/", 1)
-            self.connection.connection.privmsg(self.currentChannel, message)
-            self.chats.addItems(ChatListMyMessage(message))
+            if self.connection:
+                self.connection.connection.privmsg(self.currentChannel, message)
+                self.chats.addItems(ChatListMyMessage(message))
+        elif message.startswith("/"):
+            self.proceedCommand(message)
         else:
-            self.connection.connection.privmsg(self.currentChannel, message)
-            self.chats.addItems([ChatListMyMessage(message)])
+            if self.connection:
+                self.connection.connection.privmsg(self.currentChannel, message)
+                self.chats.addItems([ChatListMyMessage(message)])
 
     def proceedCommand(self, cmds):
         cmdlist = cmds.split()
@@ -135,13 +154,14 @@ class ImotionMain(QMainWindow):
                 self.connection.connection.join(cmdlist[1])
                 self.channelList.append(cmdlist[1])
                 self.updateServerChannels()
+                self.chats.addItems([ChatListInfo("加入 -> %s" % cmdlist[1])])
             except:
                 pass
 
     def updateServerChannels(self):
         self.serverlist.model.clear()
         self.serverlist.addItems([self.servername])
-        self.serverlist.addItems([self.channelList], True)
+        self.serverlist.addItems(self.channelList, True)
 
     def center(self):
         screen = QDesktopWidget().screenGeometry()
@@ -203,11 +223,18 @@ class ChatList(QListView):
         self.setupUi()
 
     def setupUi(self):
+        font = self.font()
+        font.setPixelSize(15)
+        self.setFont(font)
+        self.setVerticalScrollMode(QListView.ScrollPerPixel)
+        self.setWordWrap(True)
+        self.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self.setStyleSheet("ChatList::item {border: 0px; border-radius: 8px; padding: 10px; color: #000;}")
 
     def addItems(self, items, p_str=None):
         for item in items:
             self.model.appendRow(item)
+        self.scrollToBottom()
 
 class ChatListMyMessage(QStandardItem):
 
@@ -305,16 +332,18 @@ class ServerDialog(QDialog):
         aulb = QLabel("认证")
         ipv6lb = QLabel("IPv6")
         ssllb = QLabel("SSL")
+        chlb = QLabel("自动加入")
 
         self.sl = PlaceHoldEdit("irc.freenode.net")
         self.pl = PlaceHoldEdit("6667")
-        self.spl = PlaceHoldEdit("Optional")
+        self.spl = PlaceHoldEdit("可选", True)
         self.nl = PlaceHoldEdit()
-        self.ul = PlaceHoldEdit("Optional")
-        self.rl = PlaceHoldEdit("Optional")
-        self.aul = PlaceHoldEdit("Optional")
+        self.ul = PlaceHoldEdit("可选")
+        self.rl = PlaceHoldEdit("可选")
+        self.aul = PlaceHoldEdit("可选", True)
         self.ipv6l = QCheckBox()
         self.ssll = QCheckBox()
+        self.chl = PlaceHoldEdit("可选，以空格划分")
 
         self.nl.textChanged.connect(self.textSync)
 
@@ -327,6 +356,7 @@ class ServerDialog(QDialog):
         layout.addWidget(aulb, 6, 0)
         layout.addWidget(ssllb, 7, 0)
         layout.addWidget(ipv6lb, 7, 2)
+        layout.addWidget(chlb, 8, 0)
 
         layout.addWidget(self.sl, 0, 1, 1, 3)
         layout.addWidget(self.pl, 1, 1, 1, 3)
@@ -337,11 +367,12 @@ class ServerDialog(QDialog):
         layout.addWidget(self.aul, 6, 1, 1, 3)
         layout.addWidget(self.ssll, 7, 1)
         layout.addWidget(self.ipv6l, 7, 3)
+        layout.addWidget(self.chl, 8, 1, 1, 3)
 
         self.ok = QPushButton("连接")
         self.cancel = QPushButton("取消")
-        layout.addWidget(self.cancel, 8, 0, 1, 2)
-        layout.addWidget(self.ok, 8, 2, 1, 2)
+        layout.addWidget(self.cancel, 9, 0, 1, 2)
+        layout.addWidget(self.ok, 9, 2, 1, 2)
 
         self.ok.clicked.connect(self.doOk)
         self.cancel.clicked.connect(self.doCancel)
@@ -351,7 +382,8 @@ class ServerDialog(QDialog):
             port = 6667
         else:
             port = int(self.pl.text())
-        self.cinfo = [self.sl.text() or 'irc.freenode.net', port, self.nl.text(), [], self.aul.text(), self.spl.text(), self.ul.text(),
+        chs = self.chl.text().split()
+        self.cinfo = [self.sl.text() or 'irc.freenode.net', port, self.nl.text(), chs, self.aul.text(), self.spl.text(), self.ul.text(),
                       self.rl.text(),  self.ssll.isChecked(), self.ipv6l.isChecked()]
         self.done(1)
 
@@ -364,10 +396,12 @@ class ServerDialog(QDialog):
 
 class PlaceHoldEdit(QLineEdit):
 
-    def __init__(self, placeholder=None):
+    def __init__(self, placeholder=None, passwd=False):
         super().__init__()
         if placeholder:
             self.setPlaceholderText(placeholder)
+        if passwd:
+            self.setEchoMode(QLineEdit.Password)
         # self.setStyleSheet("PlaceHoldEdit {margin: 0px;}")
 
 class TopicLabel(QLabel):

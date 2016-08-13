@@ -59,6 +59,11 @@ class IRCConnection(irc.client.SimpleIRCClient):
         jmsg = json.dumps(obj)
         self.communicator.signalOut.emit(jmsg)
 
+    def on_action(self, c, e):
+        obj = {"type": "action", "nick": e.source.nick, "channel": e.target, "msg": e.arguments[0]}
+        jmsg = json.dumps(obj)
+        self.communicator.signalOut.emit(jmsg)
+
     def on_privmsg(self, c, e):
         obj = {"type": "privmsg", "nick": e.source.nick, "msg": e.arguments[0]}
         jmsg = json.dumps(obj)
