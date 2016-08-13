@@ -49,8 +49,8 @@ class ImotionMain(QMainWindow):
 
         # Set main chat panel
         chatgrid = QGridLayout()
-        topic = TopicLabel("Example Topic.")
-        chatgrid.addWidget(topic, 0, 0, 1, 2)
+        self.topic = TopicLabel("Example Topic.")
+        chatgrid.addWidget(self.topic, 0, 0, 1, 2)
         grid.addLayout(chatgrid, 0, 6, 0, 35)
 
         # Chat window
@@ -120,17 +120,17 @@ class ImotionMain(QMainWindow):
             if self.channelList:
                 self.currentChannel = self.channelList[0]
             self.nickbtn.setEnabled(True)
+            self.connection.communicator.updateTopic.connect(self.updateTopic)
         except ServerConnectionError:
             pass
 
     def proceedMsg(self, jmsg):
         msg = json.loads(jmsg)
-        text = msg["nick"] + "| " + msg["msg"]
+        text = msg["nick"] + " | " + msg["msg"]
         self.chats.addItems([ChatListOtherMessage(text)])
 
-    def updateTopic(self, jmsg):
-        msg = json.loads(jmsg)
-        self.serverInfo[msg["channel"]] = msg["topic"]
+    def updateTopic(self, channel, topic):
+        self.topic.setText("TOPIC | " + topic)
 
     def sendMessage(self):
         message = self.chatinput.text()
@@ -151,12 +151,16 @@ class ImotionMain(QMainWindow):
         cmdlist = cmds.split()
         if cmdlist[0].strip("/").lower() == "join":
             try:
-                self.connection.connection.join(cmdlist[1])
-                self.channelList.append(cmdlist[1])
-                self.updateServerChannels()
-                self.chats.addItems([ChatListInfo("加入 -> %s" % cmdlist[1])])
+                self.joinChannel(cmdlist[1])
             except:
                 pass
+
+    def joinChannel(self, channel):
+        self.connection.connection.join(channel)
+        self.channelList.append(channel)
+        self.currentChannel = channel
+        self.updateServerChannels()
+        self.chats.addItems([ChatListInfo("加入 -> %s" % channel)])
 
     def updateServerChannels(self):
         self.serverlist.model.clear()
@@ -411,6 +415,7 @@ class TopicLabel(QLabel):
         self.setupUi()
 
     def setupUi(self):
+        self.setWordWrap(True)
         self.setStyleSheet("TopicLabel {padding: 5px; border: 0px solid grey; border-radius: 5px; background: #ccc;}")
 
 if __name__ == '__main__':

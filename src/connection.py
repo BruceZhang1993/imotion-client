@@ -12,7 +12,8 @@ logger = logging.getLogger('IRC')
 class Communicator(QObject):
 
     signalOut = pyqtSignal(str)
-    updateInfo = pyqtSignal(dict)
+    updateNick= pyqtSignal(str)
+    updateTopic = pyqtSignal(str, str)
 
 class IRCThread(QThread):
 
@@ -79,8 +80,14 @@ class IRCConnection(irc.client.SimpleIRCClient):
 
     def on_nicknameinuse(self, c, e):
         c.nick(c.get_nickname() + "_")
-        info = {"nick": c.get_nickname()}
-        self.communicator.updateInfo.emit(json.dumps(info))
+
+    def on_nick(self, c, e):
+        self.communicator.updateNick.emit(c.get_nickname())
+
+    def on_topic(self, c, e):
+        channel = e.target
+        topic = e.arguments[0]
+        self.communicator.updateTopic.emit(channel, topic)
 
 class ServerConnectionError(Exception):
 
