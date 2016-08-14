@@ -14,6 +14,8 @@ class Communicator(QObject):
     signalOut = pyqtSignal(str)
     updateNick= pyqtSignal(str)
     updateTopic = pyqtSignal(str, str)
+    updateUsers = pyqtSignal(str, list)
+    joinChannel = pyqtSignal(str, str)
 
 class IRCThread(QThread):
 
@@ -88,6 +90,27 @@ class IRCConnection(irc.client.SimpleIRCClient):
         channel = e.target
         topic = e.arguments[0]
         self.communicator.updateTopic.emit(channel, topic)
+
+    def on_currenttopic(self, c, e):
+        channel = e.arguments[0]
+        topic = e.arguments[1]
+        self.communicator.updateTopic.emit(channel, topic)
+
+    def on_join(self, c, e):
+        channel = e.target
+        nick = e.source.nick
+        self.communicator.joinChannel.emit(nick, channel)
+
+    def on_namreply(self, c, e):
+        channel = e.arguments[1]
+        users = e.arguments[2].split()
+        self.communicator.updateUsers.emit(channel, users)
+
+    def on_ctcp(self, c, e):
+        parser = {"VERSION": "I-Motion IM Client.", "PING": ""}
+        command = e.arguments[0].upper()
+        if command in parser.keys():
+            c.ctcp_reply(e.source.nick, parser[command])
 
 class ServerConnectionError(Exception):
 

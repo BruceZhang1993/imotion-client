@@ -12,8 +12,11 @@ from connection import IRCConnection, ServerConnectionError, IRCThread
 class ImotionMain(QMainWindow):
 
     currentChannel = None
-    channelList = list()
+    channelList = dict()
     connection = None
+    topics = dict()
+    msgs = dict()
+    chanindex = 0
 
     def __init__(self):
         super().__init__()
@@ -41,11 +44,16 @@ class ImotionMain(QMainWindow):
         self.nickbtn.setEnabled(False)
         addserverbtn = ControlButton("")
         addserverbtn.setToolTip("- 连接服务器 -")
+        self.joinbtn = ControlButton("")
+        self.joinbtn.setToolTip("- 加入频道 -")
+        self.joinbtn.setEnabled(False)
         addserverbtn.clicked.connect(self.showserverdialog)
         self.nickbtn.clicked.connect(self.changeNick)
+        self.joinbtn.clicked.connect(self.joinChannelDialog)
         grid.addWidget(self.serverlist, 0, 0, 2, 4)
         grid.addWidget(self.nickbtn, 1, 0)
         grid.addWidget(addserverbtn, 1, 1)
+        grid.addWidget(self.joinbtn, 1, 2)
 
         # Set main chat panel
         chatgrid = QGridLayout()
@@ -97,6 +105,15 @@ class ImotionMain(QMainWindow):
         if self.cinfo:
             self.connectServer(*self.cinfo)
 
+    def joinChannelDialog(self):
+        if self.connection:
+            text, ok = QInputDialog.getText(self, "JOIN", "加入频道:")
+            if ok:
+                self.connection.connection.join(text)
+                self.channelList[self.servername].append(text)
+                self.currentChannel = text
+                self.updateServerChannels()
+
     def changeNick(self):
         if self.connection:
             text, ok = QInputDialog.getText(self, "NICK", "设置新的NICK:")
@@ -114,23 +131,61 @@ class ImotionMain(QMainWindow):
             self.irc.start()
             self.nickname = self.connection.connection.get_nickname()
             self.servername = self.connection.server
+            self.msgs[self.servername] = dict()
             self.serverlist.addItems([self.servername])
-            self.serverlist.addItems(self.connection.channels, True)
-            self.channelList = self.connection.channels
+            self.channelList[self.servername] = self.connection.channels
+            for channel in self.channelList[self.servername]:
+                self.msgs[self.servername][channel] = list()
+            self.msgs[self.servername]["server"] = list()
+            self.serverlist.addItems(self.channelList[self.servername], True)
             if self.channelList:
-                self.currentChannel = self.channelList[0]
+                self.chanindex = 0
+                self.currentChannel = self.channelList[self.servername][self.chanindex]
+                index = self.serverlist.model.createIndex(1, 0)
+                if index.isValid():
+                    self.serverlist.setCurrentIndex(index)
             self.nickbtn.setEnabled(True)
             self.connection.communicator.updateTopic.connect(self.updateTopic)
+            self.connection.communicator.joinChannel.connect(self.joinedChannel)
+            # self.serverlist.currentChanged.connect(self.sListChanged)
+            self.serverlist.model.itemChanged.connect(self.serverListChanged)
+            self.joinbtn.setEnabled(True)
         except ServerConnectionError:
-            pass
+            return
+
+    def serverListChanged(self, item):
+        if not item:
+            return
+        index = item.index()
+        self.chanindex = index - 1
+        self.currentChannel = item.text().strip()
+        self.updateChatList()
+
+    def updateChatList(self):
+        self.chats.model.clear()
+        self.currentChannel = self.channelList[self.servername][self.chanindex]
+        for item in self.msgs[self.servername][self.currentChannel]:
+            msg = json.loads(item)
+            if msg["nick"] == "/self":
+                self.chats.addItems([ChatListMyMessage(msg["msg"])])
+            else:
+                self.chats.addItems([ChatListMyMessage(msg["nick"] + " | " +msg["msg"])])
+        self.topic.setText(self.topics[self.currentChannel])
+
+    def joinedChannel(self, nick, channel):
+        if nick == self.nickname:
+            self.msgs[self.servername]["server"].append("加入频道 -> %s" % channel)
+        else:
+            self.msgs[self.servername]["server"].append("%s 加入频道 -> %s" % (nick, channel))
 
     def proceedMsg(self, jmsg):
         msg = json.loads(jmsg)
-        text = msg["nick"] + " | " + msg["msg"]
-        self.chats.addItems([ChatListOtherMessage(text)])
+        self.msgs[self.servername][msg["channel"].lower()].append(jmsg)
+        self.updateChatList()
 
     def updateTopic(self, channel, topic):
-        self.topic.setText("TOPIC | " + topic)
+        self.topics[channel] = topic
+        self.updateChatList()
 
     def sendMessage(self):
         message = self.chatinput.text()
@@ -139,13 +194,16 @@ class ImotionMain(QMainWindow):
             message = message.replace("//", "/", 1)
             if self.connection:
                 self.connection.connection.privmsg(self.currentChannel, message)
-                self.chats.addItems(ChatListMyMessage(message))
+                text = '{"nick": "/self", "msg": "'+ message +'"}'
+                self.msgs[self.servername][self.currentChannel].append(text)
+                self.updateChatList()
         elif message.startswith("/"):
             self.proceedCommand(message)
         else:
             if self.connection:
                 self.connection.connection.privmsg(self.currentChannel, message)
-                self.chats.addItems([ChatListMyMessage(message)])
+                self.msgs[self.servername][self.currentChannel].append(message)
+                self.updateChatList()
 
     def proceedCommand(self, cmds):
         cmdlist = cmds.split()
@@ -157,15 +215,16 @@ class ImotionMain(QMainWindow):
 
     def joinChannel(self, channel):
         self.connection.connection.join(channel)
-        self.channelList.append(channel)
-        self.currentChannel = channel
+        self.channelList[self.servername] = list()
+        self.msgs[self.servername][channel.lower()] = list()
+        self.channelList[self.servername].append(channel.lower())
+        self.currentChannel = channel.lower()
         self.updateServerChannels()
-        self.chats.addItems([ChatListInfo("加入 -> %s" % channel)])
 
     def updateServerChannels(self):
         self.serverlist.model.clear()
         self.serverlist.addItems([self.servername])
-        self.serverlist.addItems(self.channelList, True)
+        self.serverlist.addItems(self.channelList[self.servername], True)
 
     def center(self):
         screen = QDesktopWidget().screenGeometry()
@@ -228,12 +287,12 @@ class ChatList(QListView):
 
     def setupUi(self):
         font = self.font()
-        font.setPixelSize(15)
+        font.setPixelSize(14)
         self.setFont(font)
         self.setVerticalScrollMode(QListView.ScrollPerPixel)
         self.setWordWrap(True)
         self.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        self.setStyleSheet("ChatList::item {border: 0px; border-radius: 8px; padding: 10px; color: #000;}")
+        self.setStyleSheet("ChatList::item {border: 1px solid #AACFFA; border-radius: 8px; padding: 5px; color: #000;}")
 
     def addItems(self, items, p_str=None):
         for item in items:
@@ -310,7 +369,12 @@ class ChatInput(QLineEdit):
 
     def __init__(self):
         super().__init__()
-        # self.setupUi()
+        self.setupUi()
+
+    def setupUi(self):
+        font = self.font()
+        font.setPixelSize(14)
+        self.setFont(font)
 
 class ServerDialog(QDialog):
 
@@ -377,6 +441,8 @@ class ServerDialog(QDialog):
         self.cancel = QPushButton("取消")
         layout.addWidget(self.cancel, 9, 0, 1, 2)
         layout.addWidget(self.ok, 9, 2, 1, 2)
+        self.ok.setDefault(True)
+        self.ok.setAutoDefault(True)
 
         self.ok.clicked.connect(self.doOk)
         self.cancel.clicked.connect(self.doCancel)
