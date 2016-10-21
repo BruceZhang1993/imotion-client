@@ -4,7 +4,7 @@
 import sqlite3
 import threading, os, logging
 
-import src.functions
+import functions
 
 HOMEDIR = os.environ['HOME']
 APPDIR = HOMEDIR + "/.imotion"
@@ -42,13 +42,28 @@ class Singleton(object):
 @Singleton
 class Database(object):
 
+    name = None
     # Default database located in RAM.
     def __init__(self, name='default'):
-        logger.debug('Creating database `default` in RAM...')
-        src.functions.create_dir(DBDIR)
-        eval("self.%s = sqlite3.connect(':memory:')" % name)
-        logger.info('Database `default` in RAM has been created successfully.')
+        if self.name:
+            self._del()
+        if name.lower() == 'default':
+            logger.debug('Creating database `default` in RAM...')
+            # src.functions.create_dir(DBDIR)
+            self.default = sqlite3.connect(':memory:')
+            self.cursor = self.default.cursor()
+            logger.info('Database `default` in RAM has been created successfully.')
+        else:
+            dbfile = "%s/%s.db" % (DBDIR, name)
+            logger.debug('Creating database `%s` at `%s` ...' % (name, dbfile))
+            functions.create_dir(DBDIR)
+            eval("self.%s = sqlite3.connect('%s')" % (name, dbfile))
+            self.cursor = eval("self.%s.cursor()" % name)
+            logger.info("Database `%s` at `%s` has been created successfully." % (name, dbfile))
 
-    def create(self, name):
-        eval("self.%s = sqlite3.connect('%s/%s.db')" % (name, DBDIR, name))
-        return eval("self.%s", name)
+    def _del(self):
+        self.cursor.close()
+        eval("self.%s.close()" % self.name)
+
+    def __del__(self):
+        self._del()

@@ -1,45 +1,43 @@
 #!/usr/bin/env python3
-#-- coding: utf-8 --
+# -- coding: utf-8 --
 
-import sys, os, logging, errno
+import sys
+import logging
+# import errno
 
-from PyQt5.QtWidgets import QMainWindow, QApplication
+from PyQt5.QtWidgets import QApplication
 
-from src.database import Database
-import src.functions
+# from database import Database
+import functions
+from const import *
+from ui import ImotionMain
 
-HOMEDIR = os.environ['HOME']
-APPDIR = HOMEDIR + "/.imotion"
-DEBUG = True
 
-class ImotionMain(QMainWindow):
+def _initlogger():
+    logger = logging.getLogger("imotion")
+    sh = logging.StreamHandler()
+    sh.setFormatter(logging.Formatter('[%(levelname)s] %(message)s'))
+    logger.setLevel(logging.INFO)
+    if DEBUG:
+        logger.setLevel(logging.DEBUG)
+    logger.addHandler(sh)
+    return logger
 
-    def __init__(self):
-        super().__init__()
-        self.setupUi()
-
-    def setupUi(self):
-        pass
 
 def _firstrun():
     logger.debug("Creating APPDIR...")
-    src.functions.create_dir(APPDIR)
+    functions.create_dir(APPDIR)
+
 
 def _setlogfile():
     logger.debug('Enabling file logging...')
     fh = logging.FileHandler(APPDIR + '/imotion.log')
+    fh.setFormatter(logging.Formatter(
+        '(%(asctime)s) [%(levelname)s] %(message)s'))
     fh.setLevel(logging.DEBUG)
     logger.addHandler(fh)
     logger.info('File logging has been started.')
 
-def _initlogger():
-    logger = logging.getLogger('imotion')
-    sh = logging.StreamHandler()
-    sh.setLevel(logging.INFO)
-    if DEBUG:
-        sh.setLevel(logging.DEBUG)
-    logger.addHandler(sh)
-    return logger
 
 if __name__ == '__main__':
     logger = _initlogger()
@@ -49,7 +47,7 @@ if __name__ == '__main__':
     except OSError as e:
         logger.warning("OSError: %s" % e)
     # Init database at startup.
-    Database()
+    # Database()
     imotionapp = QApplication(sys.argv)
     imotionmain = ImotionMain()
     imotionmain.show()
