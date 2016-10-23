@@ -19,6 +19,9 @@ logger = logging.getLogger("imotion")
 class IRCCommunicator(QObject):
 
     recv_msg = pyqtSignal(str, str, str)
+    priv_msg = pyqtSignal(str, str)
+    chan_notice = pyqtSignal(str, str, str)
+    join_chan = pyqtSignal(str)
 
     def __init__(self):
         super().__init__()
@@ -38,13 +41,24 @@ class IRCClient(pydle.Client):
         self.message('NickServ', 'identify %s' % self.passwd)
         for ch in self.chans:
             self.join(ch)
+            self.communicator.join_chan.emit(ch)
 
-    def on_message(self, target, by, message):
-        logger.debug("[MSG]from %s to %s: %s" % (by, target, message))
+    def on_channel_message(self, target, by, message):
+        logger.debug("[CHAN_MSG] from %s to %s: %s" % (by, target, message))
         self.communicator.recv_msg.emit(target, by, message)
+
+    def on_private_message(self, by, message):
+        logger.debug("[PRIV_MSG] from %s: %s" % (by, message))
+        self.communicator.recv_msg.emit(by, message)
+
+    def on_channel_notice(self, target, by, message):
+        logger.debug("[CHAN_NOTICE] from %s to %s: %s" % (by, target, message))
+        self.communicator.chan_notice.emit(target, by, message)
 
 
 class IRCConnector(QThread):
+
+    communicator = IRCCommunicator()
 
     def __init__(self):
         super().__init__()

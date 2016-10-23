@@ -128,23 +128,59 @@ class ImotionMain(QWidget):
         self.ui = Ui_main()
         self.ui.setup_Ui(self)
 
-    def recv_msg(self, target, by, message):
+    def change_nick(self):
+        pass
+
+    def chan_notice(self, target, by, message):
         if target.strip() in self.channels:
-            self.pages[target.strip()].append("(%s) %s | %s" % (strftime("%H:%M"), by, message))
+            self.pages[target.strip()].append("(%s) %s NOTICE: | %s" %
+                                              (strftime("%H:%M"), by, message))
         else:
             self.channels.append(target.strip())
             self.pages[target.strip()] = QTextEdit()
             self.pages[target.strip()].setReadOnly(True)
             self.tabwidget.addTab(self.pages[target.strip()], target.strip())
-            self.pages[target.strip()].append("(%s) %s | %s" % (strftime("%H:%M"), by, message))
+            self.pages[target.strip()].append("(%s) %s NOTICE: | %s" %
+                                              (strftime("%H:%M"), by, message))
+
+    def joined_chan(self, channel):
+        self.channels.append(channel.strip())
+        self.pages[channel.strip()] = QTextEdit()
+        self.pages[channel.strip()].setReadOnly(True)
+        self.tabwidget.addTab(self.pages[channel.strip()], channel.strip())
+
+    def priv_msg(self, by, message):
+        if by.strip() in self.channels:
+            self.pages[by.strip()].append("(%s) %s" %
+                                          (strftime("%H:%M"), message))
+        else:
+            self.channels.append(by.strip())
+            self.pages[by.strip()] = QTextEdit()
+            self.pages[by.strip()].setReadOnly(True)
+            self.tabwidget.addTab(self.pages[by.strip()], by.strip())
+            self.pages[by.strip()].append("(%s) %s" %
+                                          (strftime("%H:%M"), message))
+
+    def recv_msg(self, target, by, message):
+        if target.strip() in self.channels:
+            self.pages[target.strip()].append("(%s) %s | %s" %
+                                              (strftime("%H:%M"), by, message))
+        else:
+            self.channels.append(target.strip())
+            self.pages[target.strip()] = QTextEdit()
+            self.pages[target.strip()].setReadOnly(True)
+            self.tabwidget.addTab(self.pages[target.strip()], target.strip())
+            self.pages[target.strip()].append("(%s) %s | %s" %
+                                              (strftime("%H:%M"), by, message))
 
     def send_msg(self, msg):
         self.irc.client.message(self.curr_chan, msg)
-        self.pages[self.curr_chan].append("(%s) ME | %s" % (strftime("%H:%M"), msg))
+        self.pages[self.curr_chan].append(
+            "(%s) ME | %s" % (strftime("%H:%M"), msg))
 
     def showlogin(self):
         self.loginwin = LoginWindow(self)
-        self.loginwin.show()  
+        self.loginwin.show()
 
     def closeEvent(self, event):
         try:
@@ -161,6 +197,7 @@ class ImotionMain(QWidget):
             use_ssl = True
         if child.auth.text():
             use_sasl = True
+        self.irc.communicator.join_chan.connect(self.joined_chan)
         self.irc.connect_server(child.server.text(),
                                 int(child.port.text())
                                 if child.port.text() else 6667,
@@ -175,6 +212,10 @@ class ImotionMain(QWidget):
                                 sasl_identify='' if use_sasl else None)
         self.irc.start()
         self.irc.client.communicator.recv_msg.connect(self.recv_msg)
+        self.irc.client.communicator.priv_msg.connect(self.priv_msg)
+        self.irc.client.communicator.chan_notice.connect(self.chan_notice)
+        self.loginbtn.clicked.disconnect(self.showlogin)
+        self.loginbtn.clicked.connect(self.change_nick)
 
 
 class LoginWindow(QDialog):
