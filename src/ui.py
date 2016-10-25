@@ -31,6 +31,7 @@ class Ui_main(object):
         # win.chatsend = ChatSend()
         # win.layout.addWidget(win.chatsend, 1, 2)
         win.loginbtn = QPushButton("Login")
+        win.loginbtn.setMaximumWidth(50)
         win.layout.addWidget(win.loginbtn, 1, 0)
 
 
@@ -67,7 +68,7 @@ class Ui_login(object):
 
         # Use for debugging
         win.server.setText("irc.freenode.net")
-        win.chan.setText("#linuxba")
+        win.chan.setText("#linuxba #archlinux-cn")
         win.ssl.setChecked(False)
 
         win.layout.addWidget(win.serverlb, 0, 0)
@@ -131,52 +132,46 @@ class ImotionMain(QWidget):
     def change_nick(self):
         pass
 
-    def chan_notice(self, target, by, message):
-        if target.strip() in self.channels:
-            self.pages[target.strip()].append("(%s) %s NOTICE: | %s" %
-                                              (strftime("%H:%M"), by, message))
-        else:
-            self.channels.append(target.strip())
-            self.pages[target.strip()] = QTextEdit()
-            self.pages[target.strip()].setReadOnly(True)
-            self.tabwidget.addTab(self.pages[target.strip()], target.strip())
-            self.pages[target.strip()].append("(%s) %s NOTICE: | %s" %
-                                              (strftime("%H:%M"), by, message))
-
-    def joined_chan(self, channel):
+    def _append_chan(self, channel):
         self.channels.append(channel.strip())
         self.pages[channel.strip()] = QTextEdit()
         self.pages[channel.strip()].setReadOnly(True)
         self.tabwidget.addTab(self.pages[channel.strip()], channel.strip())
 
+    def chan_notice(self, target, by, message):
+        if target.strip() not in self.channels:
+            self._append_chan(target)
+        self.pages[target.strip()].append("(%s) %s NOTICE: | %s" %
+                                          (strftime("%H:%M"), by, message))
+
+    def joined_chan(self, channel):
+        self._append_chan(channel)
+
     def priv_msg(self, by, message):
-        if by.strip() in self.channels:
-            self.pages[by.strip()].append("(%s) %s" %
-                                          (strftime("%H:%M"), message))
-        else:
-            self.channels.append(by.strip())
-            self.pages[by.strip()] = QTextEdit()
-            self.pages[by.strip()].setReadOnly(True)
-            self.tabwidget.addTab(self.pages[by.strip()], by.strip())
-            self.pages[by.strip()].append("(%s) %s" %
-                                          (strftime("%H:%M"), message))
+        if by.strip() not in self.channels:
+            self._append_chan(by)
+        self.pages[by.strip()].append("(%s) %s" %
+                                      (strftime("%H:%M"), message))
+
+    def server_info(self, message):
+        self.page1.append(message)
+
+    def chan_info(self, channel, message):
+        if channel.strip() not in self.channels:
+            self._append_chan(channel)
+        self.pages[channel.strip()].append("* %s" % message)
 
     def recv_msg(self, target, by, message):
-        if target.strip() in self.channels:
-            self.pages[target.strip()].append("(%s) %s | %s" %
-                                              (strftime("%H:%M"), by, message))
-        else:
-            self.channels.append(target.strip())
-            self.pages[target.strip()] = QTextEdit()
-            self.pages[target.strip()].setReadOnly(True)
-            self.tabwidget.addTab(self.pages[target.strip()], target.strip())
-            self.pages[target.strip()].append("(%s) %s | %s" %
-                                              (strftime("%H:%M"), by, message))
+        if target.strip() not in self.channels:
+            self._append_chan(target)
+        self.pages[target.strip()].append("(%s) %s | %s" %
+                                          (strftime("%H:%M"), by, message))
 
     def send_msg(self, msg):
-        self.irc.client.message(self.curr_chan, msg)
-        self.pages[self.curr_chan].append(
-            "(%s) ME | %s" % (strftime("%H:%M"), msg))
+        if self.curr_chan.startswith('#'):
+            self.irc.client.message(self.curr_chan, msg)
+            self.pages[self.curr_chan].append(
+                "(%s) ME | %s" % (strftime("%H:%M"), msg))
 
     def showlogin(self):
         self.loginwin = LoginWindow(self)
@@ -214,6 +209,8 @@ class ImotionMain(QWidget):
         self.irc.client.communicator.recv_msg.connect(self.recv_msg)
         self.irc.client.communicator.priv_msg.connect(self.priv_msg)
         self.irc.client.communicator.chan_notice.connect(self.chan_notice)
+        self.irc.client.communicator.server_info.connect(self.server_info)
+        self.irc.client.communicator.chan_info.connect(self.chan_info)
         self.loginbtn.clicked.disconnect(self.showlogin)
         self.loginbtn.clicked.connect(self.change_nick)
 
