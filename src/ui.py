@@ -167,11 +167,19 @@ class ImotionMain(QWidget):
         self.pages[target.strip()].append("(%s) %s | %s" %
                                           (strftime("%H:%M"), by, message))
 
+    def excute_cmd(line):
+        commands = {}
+        logger.debug("[COMMAND] Received command `%s` try excuting..." % line)
+        command = line.split()[0]
+        args = line.split()[1:]
+
     def send_msg(self, msg):
-        if self.curr_chan.startswith('#'):
+        if not msg.startswith('/'):
             self.irc.client.message(self.curr_chan, msg)
             self.pages[self.curr_chan].append(
                 "(%s) ME | %s" % (strftime("%H:%M"), msg))
+        else:
+            self.excute_cmd(msg.strip('/'))
 
     def showlogin(self):
         self.loginwin = LoginWindow(self)
