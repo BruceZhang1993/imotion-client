@@ -168,16 +168,24 @@ class ImotionMain(QWidget):
                                           (strftime("%H:%M"), by, message))
 
     def excute_cmd(line):
-        commands = {}
         logger.debug("[COMMAND] Received command `%s` try excuting..." % line)
         command = line.split()[0]
         args = line.split()[1:]
+        _do_command(command, args)
+
+    def _do_command(self, cmd, args):
+        if cmd.lower() == 'ctcp':
+            
 
     def send_msg(self, msg):
         if not msg.startswith('/'):
             self.irc.client.message(self.curr_chan, msg)
             self.pages[self.curr_chan].append(
                 "(%s) ME | %s" % (strftime("%H:%M"), msg))
+        elif msg.startswith('//'):
+            self.irc.client.message(self.curr_chan, msg[1:])
+            self.pages[self.curr_chan].append(
+                "(%s) ME | %s" % (strftime("%H:%M"), msg[1:]))
         else:
             self.excute_cmd(msg.strip('/'))
 

@@ -47,9 +47,9 @@ class IRCClient(BaseClient):
         self.chans = autojoin or []
 
     def on_connect(self):
-        # if self.passwd:
-        #     self.message('NickServ', 'identify %s' % self.passwd)
-        #     logger.info("Sent nickserv identify message.")
+        if self.passwd:
+            self.message('NickServ', 'identify %s' % self.passwd)
+            logger.info("Sent nickserv identify message.")
         for ch in self.chans:
             self.join(ch)
             self.communicator.join_chan.emit(ch)
@@ -104,7 +104,7 @@ class IRCClient(BaseClient):
         ctcps = {
             "version": "%s %s %s" % (APPNAME, VERSION, TRUNK)
         }
-        if what in ctcps.keys():
+        if what.lower() in ctcps.keys():
             self.ctcp_reply(by, what, ctcps[what.lower()])
 
     def on_ctcp_reply(self, by, target, what, response):
