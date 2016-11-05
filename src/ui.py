@@ -31,7 +31,7 @@ class Ui_main(object):
         # win.chatsend = ChatSend()
         # win.layout.addWidget(win.chatsend, 1, 2)
         win.loginbtn = QPushButton("Login")
-        win.loginbtn.setMaximumWidth(50)
+        win.loginbtn.setMaximumWidth(150)
         win.layout.addWidget(win.loginbtn, 1, 0)
 
 
@@ -111,6 +111,7 @@ class DialogInput(QLineEdit):
 
 class ImotionMain(QWidget):
 
+    nickname = None
     channels = []
     curr_chan = None
     pages = {}
@@ -129,14 +130,18 @@ class ImotionMain(QWidget):
         self.ui = Ui_main()
         self.ui.setup_Ui(self)
 
+    def _connected(self):
+        self.loginbtn.setText(self.nickname)
+
     def change_nick(self):
         pass
 
     def _append_chan(self, channel):
-        self.channels.append(channel.strip())
-        self.pages[channel.strip()] = QTextEdit()
-        self.pages[channel.strip()].setReadOnly(True)
-        self.tabwidget.addTab(self.pages[channel.strip()], channel.strip())
+        if channel not in self.channels:
+            self.channels.append(channel.strip())
+            self.pages[channel.strip()] = QTextEdit()
+            self.pages[channel.strip()].setReadOnly(True)
+            self.tabwidget.addTab(self.pages[channel.strip()], channel.strip())
 
     def chan_notice(self, target, by, message):
         if target.strip() not in self.channels:
@@ -167,17 +172,19 @@ class ImotionMain(QWidget):
         self.pages[target.strip()].append("(%s) %s | %s" %
                                           (strftime("%H:%M"), by, message))
 
-    def excute_cmd(line):
-        logger.debug("[COMMAND] Received command `%s` try excuting..." % line)
+    def excute_cmd(self, line):
+        # logger.debug("[COMMAND] Received command `%s` try excuting..." % line)
         command = line.split()[0]
         args = line.split()[1:]
-        _do_command(command, args)
+        self._do_command(command, args)
 
     def _do_command(self, cmd, args):
-        if cmd.lower() == 'ctcp':
-            
+        if cmd.lower() == 'me':
+            self.irc.client.ctcp(self.curr_chan, 'ACTION', *args)
+            self.pages[self.curr_chan].append("(%s) * ME | %s" % (strftime("%H:%M"), ' '.join(args)))
 
     def send_msg(self, msg):
+        # TODO need logging
         if not msg.startswith('/'):
             self.irc.client.message(self.curr_chan, msg)
             self.pages[self.curr_chan].append(
@@ -209,6 +216,7 @@ class ImotionMain(QWidget):
         if child.auth.text():
             use_sasl = True
         self.irc.communicator.join_chan.connect(self.joined_chan)
+        self.nickname = child.nick.text()
         self.irc.connect_server(child.server.text(),
                                 int(child.port.text())
                                 if child.port.text() else 6667,
@@ -227,6 +235,7 @@ class ImotionMain(QWidget):
         self.irc.client.communicator.chan_notice.connect(self.chan_notice)
         self.irc.client.communicator.server_info.connect(self.server_info)
         self.irc.client.communicator.chan_info.connect(self.chan_info)
+        self.irc.client.communicator.connected.connect(self._connected)
         self.loginbtn.clicked.disconnect(self.showlogin)
         self.loginbtn.clicked.connect(self.change_nick)
 
