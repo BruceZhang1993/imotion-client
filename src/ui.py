@@ -8,31 +8,60 @@ from PyQt5.QtWidgets import QGridLayout, QApplication, QTabWidget, QWidget, \
 from PyQt5.QtGui import QTextOption
 # from PyQt5.QtCore import QThread
 from time import strftime
+from functions import parse_color, append_tag
 
 
 class Ui_main(object):
 
     def setup_Ui(self, win):
         win.setWindowTitle("%s - %s" % (APPNAME, TRUNK))
-        win.resize(700, 480)
+        win.resize(1000, 600)
         desktop = QApplication.desktop()
         win.move((desktop.width() - win.width()) / 2,
                  (desktop.height() - win.height()) / 2)
         win.layout = QGridLayout()
         win.setLayout(win.layout)
-        win.tabwidget = QTabWidget()
-        win.page1 = QTextEdit()
+        win.tabwidget = ChatTabs()
+        win.page1 = ChatArea()
         win.page1.setReadOnly(True)
         win.page1.setWordWrapMode(QTextOption.NoWrap)
+        # for debugging
+        win.page1.append("Test \x02Text\x02 11112222222")
+        win.page1.append("Test \x1D\x02\x0313Text\x03\x02\x1D 222222222222222")
         win.tabwidget.addTab(win.page1, "Server")
         win.layout.addWidget(win.tabwidget, 0, 0, 1, 3)
         win.chat = ChatInput("Text Here...", parent=win)
+        win.chat.setDisabled(True)
         win.layout.addWidget(win.chat, 1, 1, 1, 2)
         # win.chatsend = ChatSend()
         # win.layout.addWidget(win.chatsend, 1, 2)
-        win.loginbtn = QPushButton("Login")
-        win.loginbtn.setMaximumWidth(150)
+        win.loginbtn = LoginBtn()
         win.layout.addWidget(win.loginbtn, 1, 0)
+        win.setStyleSheet("background:#ECE4F6;")
+
+
+class LoginBtn(QPushButton):
+
+    def __init__(self):
+        super().__init__()
+        self.setupUi()
+
+    def setupUi(self):
+        self.setStyleSheet("background:rgba(93, 90, 252, 0.5);border-radius:10px;")
+        self.setMaximumWidth(100)
+        self.setFixedHeight(50)
+        self.setText("登录")
+
+
+class ChatTabs(QTabWidget):
+
+    def __init__(self):
+        super().__init__()
+        self.setupUi()
+
+    def setupUi(self):
+        self.setStyleSheet(
+            "font-size: 18px;font-weight: bold;color:#7565F1;background:#ECE4F6;border:0;margin:0;")
 
 
 class Ui_login(object):
@@ -95,6 +124,7 @@ class Ui_login(object):
 
 
 class IMCheckBox(QCheckBox):
+
     def __init__(self, text, checked=False):
         super().__init__(text, None)
         self.setChecked(checked)
@@ -132,6 +162,7 @@ class ImotionMain(QWidget):
 
     def _connected(self):
         self.loginbtn.setText(self.nickname)
+        self.chat.setDisabled(False)
 
     def change_nick(self):
         pass
@@ -139,7 +170,7 @@ class ImotionMain(QWidget):
     def _append_chan(self, channel):
         if channel not in self.channels:
             self.channels.append(channel.strip())
-            self.pages[channel.strip()] = QTextEdit()
+            self.pages[channel.strip()] = ChatArea()
             self.pages[channel.strip()].setReadOnly(True)
             self.tabwidget.addTab(self.pages[channel.strip()], channel.strip())
 
@@ -173,7 +204,6 @@ class ImotionMain(QWidget):
                                           (strftime("%H:%M"), by, message))
 
     def excute_cmd(self, line):
-        # logger.debug("[COMMAND] Received command `%s` try excuting..." % line)
         command = line.split()[0]
         args = line.split()[1:]
         self._do_command(command, args)
@@ -181,7 +211,8 @@ class ImotionMain(QWidget):
     def _do_command(self, cmd, args):
         if cmd.lower() == 'me':
             self.irc.client.ctcp(self.curr_chan, 'ACTION', *args)
-            self.pages[self.curr_chan].append("(%s) * ME | %s" % (strftime("%H:%M"), ' '.join(args)))
+            self.pages[self.curr_chan].append(
+                "(%s) * ME | %s" % (strftime("%H:%M"), ' '.join(args)))
 
     def send_msg(self, msg):
         # TODO need logging
@@ -280,9 +311,10 @@ class ChatInput(QLineEdit):
         self.parent = parent
         self.setupUi()
         self.setPlaceholderText(text)
+        self.setStyleSheet("font-size: 18px")
 
     def setupUi(self):
-        pass
+        self.setFixedHeight(50)
 
     def keyReleaseEvent(self, event):
         if event.key() in KEYENTER:
@@ -300,3 +332,18 @@ class ChatSend(QPushButton):
 
     def setupUi(self):
         self.setText("Send")
+
+
+class ChatArea(QTextEdit):
+
+    def __init__(self):
+        super().__init__()
+        self.setupUi()
+
+    def append(self, message):
+        super().append(parse_color(message))
+
+    def setupUi(self):
+        self.setStyleSheet(
+            "padding:10px; font-size: 18px; font-weight: normal;color:black;")
+        self.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)

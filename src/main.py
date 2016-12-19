@@ -48,6 +48,7 @@ if __name__ == '__main__':
         logger.warning("OSError: %s" % e)
     # Init database at startup.
     # Database()
+    QApplication.setAttribute(Qt.AA_EnableHighDpiScaling)
     imotionapp = QApplication(sys.argv)
     imotionmain = ImotionMain()
     imotionmain.show()
