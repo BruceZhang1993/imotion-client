@@ -5,7 +5,7 @@ from connector.ircconnector import IRCConnector
 from const import *
 from PyQt5.QtWidgets import QGridLayout, QApplication, QTabWidget, QWidget, \
     QLineEdit, QPushButton, QDialog, QLabel, QCheckBox, QTextEdit
-from PyQt5.QtGui import QTextOption
+from PyQt5.QtGui import QTextOption, QIcon
 # from PyQt5.QtCore import QThread
 from time import strftime
 from functions import parse_color, append_tag
@@ -14,6 +14,7 @@ from functions import parse_color, append_tag
 class Ui_main(object):
 
     def setup_Ui(self, win):
+        win.setWindowIcon(QIcon("./resource/image/imotion.png"))
         win.setWindowTitle("%s - %s" % (APPNAME, TRUNK))
         win.resize(1000, 600)
         desktop = QApplication.desktop()
@@ -26,8 +27,8 @@ class Ui_main(object):
         win.page1.setReadOnly(True)
         win.page1.setWordWrapMode(QTextOption.NoWrap)
         # for debugging
-        win.page1.append("Test \x02Text\x02 11112222222")
-        win.page1.append("Test \x1D\x02\x0313Text\x03\x02\x1D 222222222222222")
+        # win.page1.append("Test \x02Text\x02 11112222222")
+        # win.page1.append("Test \x1D\x02\x0313Text\x03\x02\x1D 222222222222222")
         win.tabwidget.addTab(win.page1, "Server")
         win.layout.addWidget(win.tabwidget, 0, 0, 1, 3)
         win.chat = ChatInput("Text Here...", parent=win)
@@ -47,7 +48,8 @@ class LoginBtn(QPushButton):
         self.setupUi()
 
     def setupUi(self):
-        self.setStyleSheet("background:rgba(93, 90, 252, 0.5);border-radius:10px;")
+        self.setStyleSheet(
+            "background:rgba(93, 90, 252, 0.5);border-radius:10px;")
         self.setMaximumWidth(100)
         self.setFixedHeight(50)
         self.setText("登录")
@@ -62,6 +64,19 @@ class ChatTabs(QTabWidget):
     def setupUi(self):
         self.setStyleSheet(
             "font-size: 18px;font-weight: bold;color:#7565F1;background:#ECE4F6;border:0;margin:0;")
+
+
+class LoginWinBtn(QPushButton):
+
+    def __init__(self, text):
+        super().__init__(text)
+        self.setupUi()
+
+    def setupUi(self):
+        self.setFixedHeight(20);
+        self.setFixedWidth(50);
+        self.setStyleSheet(
+            "background:rgba(93, 90, 252, 0.5);border-radius:10px;")
 
 
 class Ui_login(object):
@@ -87,17 +102,17 @@ class Ui_login(object):
         win.user = DialogInput(None)
         win.real = DialogInput(None)
         win.auth = DialogInput("Optional", passwd=True)
-        win.showauth = QPushButton("Show")
+        win.showauth = LoginWinBtn("Show")
         win.ssl = IMCheckBox("SSL", True)
         win.ipv6 = QCheckBox("IPv6")
         win.chanlb = QLabel("自动加入")
         win.chan = DialogInput("以空格分隔")
-        win.confirm = QPushButton("连接")
-        win.cancel = QPushButton("取消")
+        win.confirm = LoginWinBtn("连接")
+        win.cancel = LoginWinBtn("取消")
 
         # Use for debugging
         win.server.setText("irc.freenode.net")
-        win.chan.setText("#linuxba #archlinux-cn")
+        win.chan.setText("#brucetest")
         win.ssl.setChecked(False)
 
         win.layout.addWidget(win.serverlb, 0, 0)
@@ -283,6 +298,7 @@ class LoginWindow(QDialog):
         self.confirm.clicked.connect(self.do_connect)
 
     def do_connect(self):
+        self.confirm.setDisabled(True)
         if self.nick and self.server:
             self.parent.start_connect(self)
             self.close()

@@ -28,6 +28,8 @@ def create_dir(dir):
 
 
 def parse_color(message):
+    # if message.find():
+    #     pass
     msg_list = message.split("\x02")
     message = "".join(map(lambda x: append_tag(x[1], bold=True)
                           if x[0] % 2 == 1 else x[1], enumerate(msg_list)))
