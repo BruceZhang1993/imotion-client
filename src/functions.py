@@ -28,8 +28,10 @@ def create_dir(dir):
 
 
 def parse_color(message):
-    # if message.find():
-    #     pass
+    # TODO BoldStyle + ClearStyle not capitable
+    msg_list = message.split("\x0F")
+    message = "".join(map(lambda x: append_tag(x[1], forecolor="black", backcolor="transparent")
+                if x[0] != 0 else x[1], enumerate(msg_list)))
     msg_list = message.split("\x02")
     message = "".join(map(lambda x: append_tag(x[1], bold=True)
                           if x[0] % 2 == 1 else x[1], enumerate(msg_list)))
@@ -68,7 +70,7 @@ def append_tag(message, forecolor=False, backcolor=False, bold=False, itatic=Fal
     styleStr = ""
     styleStr += "color:%s;" % forecolor if forecolor else ""
     styleStr += "background:%s;" % backcolor if backcolor else ""
-    styleStr += "font-weight:bold;" if bold else ""
-    styleStr += "font-style:oblique;" if itatic else ""
-    styleStr += "text-decoration:underline;" if underline else ""
+    styleStr += "font-weight:bold;" if bold else "font-weight:normal;"
+    styleStr += "font-style:oblique;" if itatic else "font-style:normal;"
+    styleStr += "text-decoration:underline;" if underline else "text-decoration:none;"
     return "<span style='%s'>%s</span>" % (styleStr, message)
