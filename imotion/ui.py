@@ -9,12 +9,13 @@ from PyQt5.QtGui import QTextOption, QIcon
 # from PyQt5.QtCore import QThread
 from time import strftime
 from imotion.functions import parse_color, append_tag
+import imotion.globalvars
 
 
 class Ui_main(object):
 
     def setup_Ui(self, win):
-        win.setWindowIcon(QIcon("./resource/image/imotion.png"))
+        win.setWindowIcon(QIcon("./imotion/resource/image/imotion.png"))
         win.setWindowTitle("%s - %s" % (APPNAME, TRUNK))
         win.resize(1000, 600)
         desktop = QApplication.desktop()
@@ -104,7 +105,7 @@ class Ui_login(object):
         win.auth = DialogInput("Optional", passwd=True)
         win.showauth = LoginWinBtn("Show")
         win.ssl = IMCheckBox("SSL", True)
-        win.ipv6 = QCheckBox("IPv6")
+        win.verify = QCheckBox("SSL校验")
         win.chanlb = QLabel("自动加入")
         win.chan = DialogInput("以空格分隔")
         win.confirm = LoginWinBtn("连接")
@@ -131,7 +132,7 @@ class Ui_login(object):
         win.layout.addWidget(win.auth, 6, 1, 1, 2)
         win.layout.addWidget(win.showauth, 6, 3)
         win.layout.addWidget(win.ssl, 7, 0, 1, 2)
-        win.layout.addWidget(win.ipv6, 7, 2, 1, 2)
+        win.layout.addWidget(win.verify, 7, 2, 1, 2)
         win.layout.addWidget(win.chanlb, 8, 0)
         win.layout.addWidget(win.chan, 8, 1, 1, 3)
         win.layout.addWidget(win.cancel, 9, 2)
@@ -227,18 +228,19 @@ class ImotionMain(QWidget):
         if cmd.lower() == 'me':
             self.irc.client.ctcp(self.curr_chan, 'ACTION', *args)
             self.pages[self.curr_chan].append(
-                "(%s) * ME | %s" % (strftime("%H:%M"), ' '.join(args)))
+                "(%s) * 我 | %s" % (strftime("%H:%M"), ' '.join(args)))
 
     def send_msg(self, msg):
         # TODO need logging
         if not msg.startswith('/'):
+            imotion.globalvars.logger.debug('[MSG] to %s: %s' % (self.curr_chan, msg))
             self.irc.client.message(self.curr_chan, msg)
             self.pages[self.curr_chan].append(
-                "(%s) ME | %s" % (strftime("%H:%M"), msg))
+                "(%s) 我 | %s" % (strftime("%H:%M"), msg))
         elif msg.startswith('//'):
             self.irc.client.message(self.curr_chan, msg[1:])
             self.pages[self.curr_chan].append(
-                "(%s) ME | %s" % (strftime("%H:%M"), msg[1:]))
+                "(%s) 我 | %s" % (strftime("%H:%M"), msg[1:]))
         else:
             self.excute_cmd(msg.strip('/'))
 
@@ -248,21 +250,24 @@ class ImotionMain(QWidget):
 
     def closeEvent(self, event):
         try:
-            if self.irc:
-                self.irc.client.disconnect()
+            self.irc.client.disconnect()
         finally:
             event.accept()
 
-    def start_connect(self, child):
+    def start_connect(self, child=None):
         self.irc = IRCConnector()
         use_ssl = False
         use_sasl = False
-        if child.ssl.checkState == Qt.Checked:
+        ssl_verify = False
+        if child.ssl.checkState() == Qt.Checked:
             use_ssl = True
+        if child.verify.checkState() == Qt.Checked:
+            ssl_verify = True
         if child.auth.text():
             use_sasl = True
         self.irc.communicator.join_chan.connect(self.joined_chan)
         self.nickname = child.nick.text()
+        imotion.globalvars.logger.debug('Connecting: %s. SSL: %s. SASL: %s' % (child.server.text(), use_ssl, use_sasl))
         self.irc.connect_server(child.server.text(),
                                 int(child.port.text())
                                 if child.port.text() else 6667,
@@ -274,7 +279,8 @@ class ImotionMain(QWidget):
                                 if use_sasl else None,
                                 sasl_password=child.auth.text()
                                 if use_sasl else None,
-                                sasl_identify='' if use_sasl else None)
+                                sasl_identify='' if use_sasl else None, 
+                                ssl_verify=ssl_verify)
         self.irc.start()
         self.irc.client.communicator.recv_msg.connect(self.recv_msg)
         self.irc.client.communicator.priv_msg.connect(self.priv_msg)
@@ -300,7 +306,7 @@ class LoginWindow(QDialog):
     def do_connect(self):
         self.confirm.setDisabled(True)
         if self.nick and self.server:
-            self.parent.start_connect(self)
+            self.parent.start_connect(child=self)
             self.close()
 
     def toggle_pass(self):

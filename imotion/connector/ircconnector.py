@@ -164,13 +164,13 @@ class IRCConnector(QThread):
     def connect_server(self, server, port, nickname, username=None,
                        realname=None, autojoin=None, tls=False,
                        sasl_username=None, sasl_password=None,
-                       sasl_identify=None):
+                       sasl_identify=None, ssl_verify=False):
         self.client = IRCClient(nickname, [nickname + '_', nickname + '__'],
                                 username or nickname, realname or nickname,
                                 autojoin=autojoin, sasl_username=sasl_username,
                                 sasl_password=sasl_password,
                                 sasl_identify=sasl_identify)
-        self.client.connect(server, port, tls=tls)
+        self.client.connect(server, port, tls=tls, tls_verify=ssl_verify)
 
     def run(self):
         self.client.handle_forever()

@@ -11,6 +11,7 @@ from PyQt5.QtWidgets import QApplication
 import imotion.functions as functions
 from imotion.const import *
 from imotion.ui import ImotionMain
+import imotion.globalvars
 
 
 def _initlogger():
@@ -25,27 +26,27 @@ def _initlogger():
 
 
 def _firstrun():
-    logger.debug("Creating APPDIR...")
+    imotion.globalvars.logger.debug("Creating APPDIR...")
     functions.create_dir(APPDIR)
 
 
 def _setlogfile():
-    logger.debug('Enabling file logging...')
+    imotion.globalvars.logger.debug('Enabling file logging...')
     fh = logging.FileHandler(APPDIR + '/imotion.log')
     fh.setFormatter(logging.Formatter(
         '(%(asctime)s) [%(levelname)s] %(message)s'))
     fh.setLevel(logging.DEBUG)
-    logger.addHandler(fh)
-    logger.info('File logging has been started.')
+    imotion.globalvars.logger.addHandler(fh)
+    imotion.globalvars.logger.info('File logging has been started.')
 
 
 if __name__ == '__main__':
-    logger = _initlogger()
+    imotion.globalvars.logger = _initlogger()
     try:
         _firstrun()
         _setlogfile()
     except OSError as e:
-        logger.warning("OSError: %s" % e)
+        imotion.globalvars.logger.warning("OSError: %s" % e)
     # Init database at startup.
     # Database()
     QApplication.setAttribute(Qt.AA_EnableHighDpiScaling)
