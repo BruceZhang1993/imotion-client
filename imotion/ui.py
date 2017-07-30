@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 # -- coding: utf-8 --
 
-from connector.ircconnector import IRCConnector
-from const import *
+from imotion.connector.ircconnector import IRCConnector
+from imotion.const import *
 from PyQt5.QtWidgets import QGridLayout, QApplication, QTabWidget, QWidget, \
     QLineEdit, QPushButton, QDialog, QLabel, QCheckBox, QTextEdit
 from PyQt5.QtGui import QTextOption, QIcon
 # from PyQt5.QtCore import QThread
 from time import strftime
-from functions import parse_color, append_tag
+from imotion.functions import parse_color, append_tag
 
 
 class Ui_main(object):

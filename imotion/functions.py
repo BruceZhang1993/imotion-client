@@ -6,7 +6,7 @@ import logging
 import errno
 import re
 
-from const import COLORS
+from imotion.const import COLORS
 
 
 def create_dir(dir):

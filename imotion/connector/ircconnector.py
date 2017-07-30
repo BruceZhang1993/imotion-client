@@ -5,7 +5,7 @@ import pydle
 import logging
 # import threading
 from PyQt5.QtCore import QThread, QObject, pyqtSignal
-from const import *
+from imotion.const import *
 
 # from src.database import Database
 BaseClient = pydle.featurize(

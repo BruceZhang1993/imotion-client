@@ -1,4 +1,4 @@
 .idea/
-src/__pycache__
-src/connector/__pycache__
+.vscode/
+__pycache__
 *.pyc

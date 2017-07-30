@@ -4,7 +4,7 @@
 import sqlite3
 import threading, os, logging
 
-import functions
+import imotion.functions as functions
 
 HOMEDIR = os.environ['HOME']
 APPDIR = HOMEDIR + "/.imotion"

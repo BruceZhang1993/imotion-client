@@ -8,9 +8,9 @@ import logging
 from PyQt5.QtWidgets import QApplication
 
 # from database import Database
-import functions
-from const import *
-from ui import ImotionMain
+import imotion.functions as functions
+from imotion.const import *
+from imotion.ui import ImotionMain
 
 
 def _initlogger():
