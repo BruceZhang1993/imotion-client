@@ -1,4 +1,4 @@
-# imotion-client
+# I
 ##### A qt-based python IRC client.
 
 Under development. 
