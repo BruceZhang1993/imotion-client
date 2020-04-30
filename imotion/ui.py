@@ -30,16 +30,16 @@ class Ui_main(object):
         # for debugging
         # win.page1.append("Test \x02Text\x02 11112222222")
         # win.page1.append("Test \x1D\x02\x0313Text\x03\x02\x1D 222222222222222")
-        win.tabwidget.addTab(win.page1, "Server")
+        win.tabwidget.addTab(win.page1, "  Server  ")
         win.layout.addWidget(win.tabwidget, 0, 0, 1, 3)
-        win.chat = ChatInput("Text Here...", parent=win)
+        win.chat = ChatInput("Text...", parent=win)
         win.chat.setDisabled(True)
         win.layout.addWidget(win.chat, 1, 1, 1, 2)
         # win.chatsend = ChatSend()
         # win.layout.addWidget(win.chatsend, 1, 2)
         win.loginbtn = LoginBtn()
         win.layout.addWidget(win.loginbtn, 1, 0)
-        win.setStyleSheet("background:#ECE4F6;")
+        # win.setStyleSheet("background:#ECE4F6;")
 
 
 class LoginBtn(QPushButton):
@@ -50,10 +50,10 @@ class LoginBtn(QPushButton):
 
     def setupUi(self):
         self.setStyleSheet(
-            "background:rgba(93, 90, 252, 0.5);border-radius:10px;")
+            "background:#a33aff;border-radius:4px;font-weight:bold;color:white;font-size: 16px;")
         self.setMaximumWidth(100)
-        self.setFixedHeight(50)
-        self.setText("登录")
+        self.setFixedHeight(40)
+        self.setText("Login")
 
 
 class ChatTabs(QTabWidget):
@@ -64,7 +64,7 @@ class ChatTabs(QTabWidget):
 
     def setupUi(self):
         self.setStyleSheet(
-            "font-size: 18px;font-weight: bold;color:#7565F1;background:#ECE4F6;border:0;margin:0;")
+            "font-size: 16px;font-weight: bold;color:#7565F1;background:transparent;border:0;margin:0;")
 
 
 class LoginWinBtn(QPushButton):
@@ -74,10 +74,10 @@ class LoginWinBtn(QPushButton):
         self.setupUi()
 
     def setupUi(self):
-        self.setFixedHeight(20);
-        self.setFixedWidth(50);
+        self.setFixedHeight(24)
+        self.setFixedWidth(50)
         self.setStyleSheet(
-            "background:rgba(93, 90, 252, 0.5);border-radius:10px;")
+            "background:#a33aff;border-radius:4px;color:white;")
 
 
 class Ui_login(object):
@@ -251,6 +251,8 @@ class ImotionMain(QWidget):
     def closeEvent(self, event):
         try:
             self.irc.client.disconnect()
+        except:
+            pass
         finally:
             event.accept()
 
